@@ -1,12 +1,18 @@
-# Python
+# ============================
+# PYTHON
+# ============================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Virtual environments
 env/
 venv/
 ENV/
+
+# Packaging
 build/
 develop-eggs/
 dist/
@@ -23,7 +29,9 @@ wheels/
 .installed.cfg
 *.egg
 
-# IDEs
+# ============================
+# IDE / EDITOR
+# ============================
 .vscode/
 .idea/
 *.swp
@@ -31,19 +39,25 @@ wheels/
 *~
 .DS_Store
 
-# Streamlit
+# ============================
+# STREAMLIT
+# ============================
 .streamlit/
 .streamlit/secrets.toml
 
-# Environment
+# ============================
+# ENVIRONMENT / CONFIG
+# ============================
 .env
 .env.local
 
-# Cache
+# ============================
+# CACHE
+# ============================
 .cache/
 *.cache
 
-# Data
-*.xlsx
-*.csv
+# ============================
+# DATA (permitimos XLSX y CSV)
+# ============================
 .ipynb_checkpoints/
