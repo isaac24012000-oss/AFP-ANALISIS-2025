@@ -555,3 +555,249 @@ with col4:
             <div class="metric-value">{porcentaje_worldtel:.1f}%</div>
         </div>
     """, unsafe_allow_html=True)
+
+# ============================================
+# TABLA HOY x HOY - GESTIONES
+# ============================================
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.markdown('<h2 class="section-title">📅 Tabla HOY x HOY - Gestiones</h2>', unsafe_allow_html=True)
+
+def cargar_gestiones():
+    import os
+    posibles_rutas = [
+        "ANALISIS WORLDTEL.xlsx",
+        "./ANALISIS WORLDTEL.xlsx",
+        os.path.join(os.getcwd(), "ANALISIS WORLDTEL.xlsx"),
+        r"C:\Users\USUARIO\Desktop\REPORTE MENSUAL WORLDTEL\DASHBOARD ANALISIS\WORLDTEL ANALISIS\ANALISIS WORLDTEL.xlsx"
+    ]
+    
+    for ruta in posibles_rutas:
+        try:
+            if os.path.exists(ruta) and os.path.isfile(ruta):
+                try:
+                    df = pd.read_excel(ruta, sheet_name='GESTIONES', engine='openpyxl')
+                    return df
+                except:
+                    pass
+        except:
+            pass
+    return None
+
+df_gestiones = cargar_gestiones()
+
+if df_gestiones is not None and not df_gestiones.empty:
+    # Clasificar gestores por equipo
+    df_gestiones['EQUIPO'] = df_gestiones['GESTOR'].apply(lambda x: 'WORLDTEL' if x in equipo_worldtel else 'GI CORONADO')
+    
+    # Limpiar datos
+    df_gestiones_limpio = df_gestiones[
+        (df_gestiones['FECHA_GESTION'].notna()) &
+        (df_gestiones['FECHA_PROMESA'].notna()) &
+        (df_gestiones['MONTO_PROMESA'].notna()) &
+        (df_gestiones['MONTO_PROMESA'] > 0)
+    ].copy()
+    
+    if not df_gestiones_limpio.empty:
+        # Filtro por equipo
+        col_filtro = st.columns(1)[0]
+        with col_filtro:
+            filtro_equipo = st.selectbox(
+                "🔍 Filtrar por Equipo",
+                options=['TODOS', 'WORLDTEL', 'GI CORONADO'],
+                index=0,
+                key='selectbox_hoy'
+            )
+        
+        # Aplicar filtro
+        if filtro_equipo != 'TODOS':
+            df_filtrado = df_gestiones_limpio[df_gestiones_limpio['EQUIPO'] == filtro_equipo].copy()
+        else:
+            df_filtrado = df_gestiones_limpio.copy()
+        
+        # Convertir fechas a formato DD/MM/AA
+        df_filtrado['FECHA_GESTION'] = pd.to_datetime(df_filtrado['FECHA_GESTION']).dt.strftime('%d/%m/%y')
+        df_filtrado['FECHA_PROMESA'] = pd.to_datetime(df_filtrado['FECHA_PROMESA']).dt.strftime('%d/%m/%y')
+        
+        # Crear tabla cruzada (pivot table)
+        tabla_cruzada = df_filtrado.pivot_table(
+            index='FECHA_GESTION',
+            columns='FECHA_PROMESA',
+            values='MONTO_PROMESA',
+            aggfunc='sum'
+        )
+        
+        # Agregar totales
+        tabla_cruzada['TOTAL'] = tabla_cruzada.sum(axis=1)
+        totales_columnas = tabla_cruzada.sum(axis=0)
+        totales_columnas.name = 'TOTAL'
+        tabla_cruzada = pd.concat([tabla_cruzada, totales_columnas.to_frame().T])
+        
+        # Rellenar NaN con 0 y redondear a 2 decimales
+        tabla_cruzada = tabla_cruzada.fillna(0).round(2)
+        
+        # Crear tabla HTML mejorada
+        html_tabla_hoy = "<div style='overflow-x: auto; margin: 20px 0;'><table style='border-collapse: collapse; width: 100%; font-size: 0.9em;'>"
+        
+        # Encabezados
+        html_tabla_hoy += "<tr style='background-color: #f0f0f0;'><th style='border: 1px solid #ddd; padding: 4px; text-align: center; font-weight: bold;'>HOY x HOY</th>"
+        for col in tabla_cruzada.columns:
+            html_tabla_hoy += f"<th style='border: 1px solid #ddd; padding: 4px; text-align: center; font-weight: bold;'>{col}</th>"
+        html_tabla_hoy += "</tr>"
+        
+        # Datos
+        for idx, row in tabla_cruzada.iterrows():
+            if idx == 'TOTAL':
+                # Fila de totales
+                html_tabla_hoy += f"<tr style='background-color: #e8f4f8; font-weight: bold;'><td style='border: 1px solid #ddd; padding: 4px; text-align: center;'>{idx}</td>"
+                for val in row:
+                    html_tabla_hoy += f"<td style='border: 1px solid #ddd; padding: 4px; text-align: right;'>{val:,.2f}</td>"
+                html_tabla_hoy += "</tr>"
+            else:
+                # Filas normales
+                html_tabla_hoy += f"<tr><td style='border: 1px solid #ddd; padding: 4px; text-align: center; font-weight: bold;'>{idx}</td>"
+                for val in row:
+                    if val == 0:
+                        html_tabla_hoy += f"<td style='border: 1px solid #ddd; padding: 4px; text-align: right; color: #ccc;'>-</td>"
+                    else:
+                        html_tabla_hoy += f"<td style='border: 1px solid #ddd; padding: 4px; text-align: right;'>{val:,.2f}</td>"
+                html_tabla_hoy += "</tr>"
+        
+        html_tabla_hoy += "</table></div>"
+        st.markdown(html_tabla_hoy, unsafe_allow_html=True)
+    else:
+        st.warning("No hay datos válidos en la hoja GESTIONES")
+else:
+    st.info("No se encontró la hoja GESTIONES o está vacía")
+
+# ============================================
+# ANÁLISIS DE EFECTIVIDAD Y CONVERSIÓN
+# ============================================
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.markdown('<h2 class="section-title">📈 Análisis de Efectividad y Conversión</h2>', unsafe_allow_html=True)
+
+# Calcular totales de cada equipo
+monto_worldtel_recaudado = df[df['EQUIPO'] == 'WORLDTEL']['MONTO'].sum()
+monto_gi_recaudado = df[df['EQUIPO'] == 'GI CORONADO']['MONTO'].sum()
+
+# Calcular promesas por equipo desde HOY x HOY
+if df_gestiones is not None and not df_gestiones.empty:
+    df_gestiones['EQUIPO'] = df_gestiones['GESTOR'].apply(lambda x: 'WORLDTEL' if x in equipo_worldtel else 'GI CORONADO')
+    
+    df_gestiones_limpio = df_gestiones[
+        (df_gestiones['FECHA_GESTION'].notna()) &
+        (df_gestiones['FECHA_PROMESA'].notna()) &
+        (df_gestiones['MONTO_PROMESA'].notna()) &
+        (df_gestiones['MONTO_PROMESA'] > 0)
+    ].copy()
+    
+    monto_promesas_worldtel = df_gestiones_limpio[df_gestiones_limpio['EQUIPO'] == 'WORLDTEL']['MONTO_PROMESA'].sum()
+    monto_promesas_gi = df_gestiones_limpio[df_gestiones_limpio['EQUIPO'] == 'GI CORONADO']['MONTO_PROMESA'].sum()
+    
+    # Filtro para la sección de análisis
+    col_filtro_analisis = st.columns(1)[0]
+    with col_filtro_analisis:
+        filtro_analisis = st.selectbox(
+            "🔍 Selecciona Equipo para Análisis",
+            options=['TODOS', 'WORLDTEL', 'GI CORONADO'],
+            index=0,
+            key='selectbox_analisis'
+        )
+    
+    # Crear tarjetas de análisis
+    if filtro_analisis == 'WORLDTEL' or filtro_analisis == 'TODOS':
+        st.markdown("### 🟦 WORLDTEL")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        monto_recaudado = monto_worldtel_recaudado
+        monto_promesas = monto_promesas_worldtel
+        monto_total_proyectado = monto_recaudado + monto_promesas
+        
+        # Calcular % de conversión
+        if monto_total_proyectado > 0:
+            porcentaje_conversion = (monto_recaudado / monto_total_proyectado) * 100
+        else:
+            porcentaje_conversion = 0
+        
+        with col1:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">💰 Recaudado</div>
+                    <div class="metric-value">S/ {monto_recaudado:,.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">📋 En Promesas</div>
+                    <div class="metric-value">S/ {monto_promesas:,.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">🎯 Total Proyectado</div>
+                    <div class="metric-value">S/ {monto_total_proyectado:,.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            color_conversion = "#27ae60" if porcentaje_conversion > 50 else "#e74c3c"
+            st.markdown(f"""
+                <div class="metric-card" style="border-left-color: {color_conversion};">
+                    <div class="metric-label">📊 % Conversión</div>
+                    <div class="metric-value" style="color: {color_conversion};">{porcentaje_conversion:.1f}%</div>
+                </div>
+            """, unsafe_allow_html=True)
+    
+    if filtro_analisis == 'GI CORONADO' or filtro_analisis == 'TODOS':
+        st.markdown("### 🟠 GI CORONADO")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        monto_recaudado = monto_gi_recaudado
+        monto_promesas = monto_promesas_gi
+        monto_total_proyectado = monto_recaudado + monto_promesas
+        
+        # Calcular % de conversión
+        if monto_total_proyectado > 0:
+            porcentaje_conversion = (monto_recaudado / monto_total_proyectado) * 100
+        else:
+            porcentaje_conversion = 0
+        
+        with col1:
+            st.markdown(f"""
+                <div class="metric-card gi">
+                    <div class="metric-label">💰 Recaudado</div>
+                    <div class="metric-value">S/ {monto_recaudado:,.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+                <div class="metric-card gi">
+                    <div class="metric-label">📋 En Promesas</div>
+                    <div class="metric-value">S/ {monto_promesas:,.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+                <div class="metric-card gi">
+                    <div class="metric-label">🎯 Total Proyectado</div>
+                    <div class="metric-value">S/ {monto_total_proyectado:,.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            color_conversion = "#27ae60" if porcentaje_conversion > 50 else "#e74c3c"
+            st.markdown(f"""
+                <div class="metric-card gi" style="border-left-color: {color_conversion};">
+                    <div class="metric-label">📊 % Conversión</div>
+                    <div class="metric-value" style="color: {color_conversion};">{porcentaje_conversion:.1f}%</div>
+                </div>
+            """, unsafe_allow_html=True)
+else:
+    st.info("No se pueden calcular métricas sin datos de GESTIONES")
