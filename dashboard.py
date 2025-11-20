@@ -138,7 +138,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Cargar datos
-@st.cache_data
 def cargar_datos():
     import os
     import glob
