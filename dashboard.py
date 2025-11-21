@@ -803,10 +803,10 @@ else:
     st.info("No se pueden calcular métricas sin datos de GESTIONES")
 
 # ============================================
-# SECCIÓN TIMMING - GASTOS Y PLANILLAS
+# SECCIÓN TIMMING - GASTOS
 # ============================================
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-st.markdown('<h2 class="section-title">⏱️ ANÁLISIS DE TIMMING - GASTOS Y PLANILLAS</h2>', unsafe_allow_html=True)
+st.markdown('<h2 class="section-title">⏱️ ANÁLISIS DE TIMMING - GASTOS</h2>', unsafe_allow_html=True)
 
 def cargar_timming():
     import os
