@@ -1063,12 +1063,10 @@ if df_timming_raw is not None:
     # Extraer las 4 tablas
     tablas_timming = parsear_timming_data(df_timming_raw)
     
-    # Crear tabs para las 4 tablas
-    tab1, tab2, tab3, tab4 = st.tabs([
+    # Crear tabs para las 2 tablas de gastos
+    tab1, tab2 = st.tabs([
         "📊 Gastos General",
-        "👥 Gastos por Asesor",
-        "📋 Planillas General",
-        "👤 Planillas por Asesor"
+        "👥 Gastos por Asesor"
     ])
     
     # Mostrar cada tabla en su tab
@@ -1099,60 +1097,5 @@ if df_timming_raw is not None:
             df_cierre=df
         )
     
-    with tab3:
-        st.markdown("#### 📋 TIMMING GENERAL PLANILLAS")
-        mostrar_tabla_timming(tablas_timming.get('PLANILLAS_GENERAL'), "Planillas General", monto_worldtel_recaudado)
-    
-    with tab4:
-        st.markdown("#### 👤 TIMMING ASESOR PLANILLAS")
-        
-        # Selector de asesor para esta pestaña
-        asesores_worldtel = equipo_worldtel
-        asesor_seleccionado = st.selectbox(
-            "Selecciona un Asesor",
-            options=asesores_worldtel,
-            key="asesor_planillas"
-        )
-        
-        # Obtener recaudado del asesor seleccionado
-        monto_asesor = df[df['ASESOR'] == asesor_seleccionado]['MONTO'].sum()
-        
-        mostrar_tabla_timming(
-            tablas_timming.get('PLANILLAS_ASESOR'),
-            "Planillas por Asesor",
-            monto_recaudado_worldtel=monto_asesor,
-            es_asesor=True,
-            nombre_asesor=asesor_seleccionado,
-            df_cierre=df
-        )
-    
-    # Resumen final
-    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
-    st.markdown("### 📈 Resumen Final de Timming")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    labels_comparativa = [
-        ("Gastos General", "GASTOS_GENERAL"),
-        ("Gastos Asesor", "GASTOS_ASESOR"),
-        ("Planillas General", "PLANILLAS_GENERAL"),
-        ("Planillas Asesor", "PLANILLAS_ASESOR")
-    ]
-    
-    for col, (label, key) in zip([col1, col2, col3, col4], labels_comparativa):
-        with col:
-            datos = tablas_timming.get(key)
-            if datos is not None and not datos.empty:
-                datos_clean = datos.copy()
-                datos_clean['Acumulado'] = pd.to_numeric(datos_clean['Acumulado'], errors='coerce')
-                ultimo_val = datos_clean['Acumulado'].iloc[-1] if pd.notna(datos_clean['Acumulado'].iloc[-1]) else 0
-                
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <div class="metric-label">{label}</div>
-                        <div class="metric-value">S/ {ultimo_val:,.0f}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-
 else:
     st.warning("⚠️ No se pudo cargar el archivo de TIMMING. Verifica que el archivo existe en la ruta correcta.")
