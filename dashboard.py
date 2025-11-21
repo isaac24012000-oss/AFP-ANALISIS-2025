@@ -810,18 +810,36 @@ st.markdown('<h2 class="section-title">⏱️ ANÁLISIS DE TIMMING - GASTOS Y PL
 
 def cargar_timming():
     import os
+    import io
+    import requests
     
-    ruta_timming = r'C:\Users\USUARIO\Desktop\REPORTE MENSUAL WORLDTEL\TIMMING WORLDTEL SET - OCT 2025.xlsx'
+    # Primero intentar cargar desde ruta local
+    ruta_timming_local = r'C:\Users\USUARIO\Desktop\REPORTE MENSUAL WORLDTEL\TIMMING WORLDTEL SET - OCT 2025.xlsx'
     
     try:
-        if os.path.exists(ruta_timming):
+        if os.path.exists(ruta_timming_local):
             # Leer la hoja TIMMING NOVIEMBRE sin headers
-            df_timming = pd.read_excel(ruta_timming, sheet_name='TIMMING NOVIEMBRE', engine='openpyxl', header=None)
+            df_timming = pd.read_excel(ruta_timming_local, sheet_name='TIMMING NOVIEMBRE', engine='openpyxl', header=None)
             return df_timming
     except Exception as e:
-        st.error(f"Error al cargar timming: {str(e)}")
+        pass
     
-    return None
+    # Si no existe localmente, intentar descargar desde GitHub
+    try:
+        url_github = "https://raw.githubusercontent.com/isaac24012000-oss/AFP-ANALISIS/main/TIMMING%20WORLDTEL%20SET%20-%20OCT%202025.xlsx"
+        response = requests.get(url_github, timeout=10)
+        response.raise_for_status()
+        
+        # Leer el archivo desde el contenido descargado
+        df_timming = pd.read_excel(io.BytesIO(response.content), sheet_name='TIMMING NOVIEMBRE', engine='openpyxl', header=None)
+        return df_timming
+    except requests.exceptions.RequestException as e:
+        st.error(f"❌ No se pudo descargar el archivo desde GitHub: {str(e)}")
+        st.info("📍 Asegúrate de que el archivo está en el repositorio: isaac24012000-oss/AFP-ANALISIS")
+        return None
+    except Exception as e:
+        st.error(f"Error al cargar timming: {str(e)}")
+        return None
 
 def parsear_timming_data(df_timming):
     """Parsea las 4 tablas del archivo timming"""
