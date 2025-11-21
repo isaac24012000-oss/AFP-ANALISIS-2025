@@ -810,32 +810,25 @@ st.markdown('<h2 class="section-title">⏱️ ANÁLISIS DE TIMMING - GASTOS Y PL
 
 def cargar_timming():
     import os
-    import io
-    import requests
     
-    # Primero intentar cargar desde ruta local
-    ruta_timming_local = r'C:\Users\USUARIO\Desktop\REPORTE MENSUAL WORLDTEL\TIMMING WORLDTEL SET - OCT 2025.xlsx'
+    # Obtener el directorio donde está el dashboard
+    dir_actual = os.path.dirname(os.path.abspath(__file__))
+    
+    # Buscar el archivo TIMMING en el mismo directorio
+    ruta_timming = os.path.join(dir_actual, 'TIMMING WORLDTEL SET - OCT 2025.xlsx')
+    
+    if not os.path.exists(ruta_timming):
+        st.error(f"❌ No se encontró el archivo TIMMING")
+        st.info(f"📁 Buscando en: {ruta_timming}")
+        return None
     
     try:
-        if os.path.exists(ruta_timming_local):
-            # Leer la hoja TIMMING NOVIEMBRE sin headers
-            df_timming = pd.read_excel(ruta_timming_local, sheet_name='TIMMING NOVIEMBRE', engine='openpyxl', header=None)
-            return df_timming
-    except Exception as e:
-        pass
-    
-    # Si no existe localmente, intentar descargar desde GitHub
-    try:
-        url_github = "https://raw.githubusercontent.com/isaac24012000-oss/AFP-ANALISIS/main/TIMMING%20WORLDTEL%20SET%20-%20OCT%202025.xlsx"
-        response = requests.get(url_github, timeout=10)
-        response.raise_for_status()
-        
-        # Leer el archivo desde el contenido descargado
-        df_timming = pd.read_excel(io.BytesIO(response.content), sheet_name='TIMMING NOVIEMBRE', engine='openpyxl', header=None)
+        # Leer la hoja TIMMING NOVIEMBRE sin headers
+        df_timming = pd.read_excel(ruta_timming, sheet_name='TIMMING NOVIEMBRE', engine='openpyxl', header=None)
         return df_timming
-    except requests.exceptions.RequestException as e:
-        st.error(f"❌ No se pudo descargar el archivo desde GitHub: {str(e)}")
-        st.info("📍 Asegúrate de que el archivo está en el repositorio: isaac24012000-oss/AFP-ANALISIS")
+    except PermissionError:
+        st.error("❌ El archivo está siendo utilizado por otra aplicación")
+        st.warning("⚠️ Por favor, cierra el archivo Excel y luego recarga la página")
         return None
     except Exception as e:
         st.error(f"Error al cargar timming: {str(e)}")
