@@ -801,3 +801,347 @@ if df_gestiones is not None and not df_gestiones.empty:
             """, unsafe_allow_html=True)
 else:
     st.info("No se pueden calcular métricas sin datos de GESTIONES")
+
+# ============================================
+# SECCIÓN TIMMING - GASTOS Y PLANILLAS
+# ============================================
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.markdown('<h2 class="section-title">⏱️ ANÁLISIS DE TIMMING - GASTOS Y PLANILLAS</h2>', unsafe_allow_html=True)
+
+def cargar_timming():
+    import os
+    
+    ruta_timming = r'C:\Users\USUARIO\Desktop\REPORTE MENSUAL WORLDTEL\TIMMING WORLDTEL SET - OCT 2025.xlsx'
+    
+    try:
+        if os.path.exists(ruta_timming):
+            # Leer la hoja TIMMING NOVIEMBRE sin headers
+            df_timming = pd.read_excel(ruta_timming, sheet_name='TIMMING NOVIEMBRE', engine='openpyxl', header=None)
+            return df_timming
+    except Exception as e:
+        st.error(f"Error al cargar timming: {str(e)}")
+    
+    return None
+
+def parsear_timming_data(df_timming):
+    """Parsea las 4 tablas del archivo timming"""
+    tablas = {}
+    
+    try:
+        # GASTOS GENERAL (columnas 1-5, filas 2-23)
+        datos_gg = df_timming.iloc[2:23, 1:6].copy()
+        datos_gg.columns = ['Día hábil', 'Fecha', 'Timing', 'Meta día', 'Acumulado']
+        datos_gg = datos_gg[pd.to_numeric(datos_gg['Día hábil'], errors='coerce').notna()].copy()
+        datos_gg = datos_gg.reset_index(drop=True)
+        tablas['GASTOS_GENERAL'] = datos_gg
+    except:
+        tablas['GASTOS_GENERAL'] = None
+    
+    try:
+        # GASTOS ASESOR (columnas 7-11, filas 2-23)
+        datos_ga = df_timming.iloc[2:23, 7:12].copy()
+        datos_ga.columns = ['Día hábil', 'Fecha', 'Timing', 'Meta día', 'Acumulado']
+        datos_ga = datos_ga[pd.to_numeric(datos_ga['Día hábil'], errors='coerce').notna()].copy()
+        datos_ga = datos_ga.reset_index(drop=True)
+        tablas['GASTOS_ASESOR'] = datos_ga
+    except:
+        tablas['GASTOS_ASESOR'] = None
+    
+    try:
+        # PLANILLAS GENERAL (columnas 1-5, filas 28-49)
+        datos_pg = df_timming.iloc[28:49, 1:6].copy()
+        datos_pg.columns = ['Día hábil', 'Fecha', 'Timing', 'Meta día', 'Acumulado']
+        datos_pg = datos_pg[pd.to_numeric(datos_pg['Día hábil'], errors='coerce').notna()].copy()
+        datos_pg = datos_pg.reset_index(drop=True)
+        tablas['PLANILLAS_GENERAL'] = datos_pg
+    except:
+        tablas['PLANILLAS_GENERAL'] = None
+    
+    try:
+        # PLANILLAS ASESOR (columnas 7-11, filas 28-49)
+        datos_pa = df_timming.iloc[28:49, 7:12].copy()
+        datos_pa.columns = ['Día hábil', 'Fecha', 'Timing', 'Meta día', 'Acumulado']
+        datos_pa = datos_pa[pd.to_numeric(datos_pa['Día hábil'], errors='coerce').notna()].copy()
+        datos_pa = datos_pa.reset_index(drop=True)
+        tablas['PLANILLAS_ASESOR'] = datos_pa
+    except:
+        tablas['PLANILLAS_ASESOR'] = None
+    
+    return tablas
+
+def mostrar_tabla_timming(datos, titulo, monto_recaudado_worldtel=None, es_asesor=False, nombre_asesor=None, df_cierre=None):
+    """Muestra tabla de timming con análisis del día actual
+    
+    Args:
+        datos: DataFrame con datos de timming
+        titulo: Título de la tabla
+        monto_recaudado_worldtel: Monto recaudado total (por defecto)
+        es_asesor: True si es una tabla de asesor
+        nombre_asesor: Nombre del asesor específico
+        df_cierre: DataFrame de CIERRE DE PAGOS para buscar recaudado por asesor
+    """
+    if datos is None or datos.empty:
+        st.warning(f"No hay datos para {titulo}")
+        return
+    
+    try:
+        from datetime import datetime
+        
+        # Limpiar y convertir datos
+        datos = datos.copy()
+        
+        # Convertir columnas numéricas
+        datos['Día hábil'] = pd.to_numeric(datos['Día hábil'], errors='coerce')
+        datos['Timing'] = pd.to_numeric(datos['Timing'], errors='coerce')
+        datos['Meta día'] = pd.to_numeric(datos['Meta día'], errors='coerce')
+        datos['Acumulado'] = pd.to_numeric(datos['Acumulado'], errors='coerce')
+        
+        # Convertir fechas
+        datos['Fecha'] = pd.to_datetime(datos['Fecha'], errors='coerce')
+        
+        # Obtener el día actual (21 de noviembre)
+        hoy = datetime(2025, 11, 21)
+        
+        # Buscar la fila del día actual basado en la fecha
+        fila_hoy = None
+        acumulado_hoy = 0
+        meta_acumulada_hoy = 0
+        
+        for idx, row in datos.iterrows():
+            fecha = row['Fecha']
+            if pd.notna(fecha):
+                if fecha.date() <= hoy.date():
+                    acumulado_hoy = row['Acumulado'] if pd.notna(row['Acumulado']) else 0
+                    meta_acumulada_hoy = row['Meta día'] if pd.notna(row['Meta día']) else 0
+                    fila_hoy = idx
+        
+        # Calcular el recaudado específico si es por asesor
+        monto_recaudado_actual = monto_recaudado_worldtel
+        if es_asesor and nombre_asesor and df_cierre is not None:
+            # Buscar el recaudado del asesor específico desde CIERRE DE PAGOS
+            monto_asesor = df_cierre[df_cierre['ASESOR'] == nombre_asesor]['MONTO'].sum()
+            monto_recaudado_actual = monto_asesor if monto_asesor > 0 else monto_recaudado_worldtel
+        
+        # Mostrar métricas principales
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            # Acumulado Hoy (Timming) - Visual mejorado
+            st.markdown(f"""
+                <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+                    <div style='font-size: 0.85em; color: rgba(255,255,255,0.8); margin-bottom: 5px;'>📍 Acumulado Hoy (Timming)</div>
+                    <div style='font-size: 1.8em; font-weight: bold; color: #ffffff;'>S/ {acumulado_hoy:,.2f}</div>
+                    <div style='font-size: 0.75em; color: rgba(255,255,255,0.6); margin-top: 5px;'>Meta esperada al 21/11</div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            if monto_recaudado_actual is not None:
+                # Recaudado Real - Visual mejorado
+                etiqueta_recaudado = "Recaudado Real (Asesor)" if es_asesor else "Recaudado Real"
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+                        <div style='font-size: 0.85em; color: rgba(255,255,255,0.8); margin-bottom: 5px;'>💰 {etiqueta_recaudado}</div>
+                        <div style='font-size: 1.8em; font-weight: bold; color: #ffffff;'>S/ {monto_recaudado_actual:,.2f}</div>
+                        <div style='font-size: 0.75em; color: rgba(255,255,255,0.6); margin-top: 5px;'>{'Dinero generado por asesor' if es_asesor else 'Dinero en caja WORLDTEL'}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                    <div style='background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
+                        <div style='font-size: 0.85em; color: rgba(255,255,255,0.8); margin-bottom: 5px;'>💰 Recaudado Real</div>
+                        <div style='font-size: 1.8em; font-weight: bold; color: #ffffff;'>S/ 0.00</div>
+                        <div style='font-size: 0.75em; color: rgba(255,255,255,0.6); margin-top: 5px;'>Sin datos disponibles</div>
+                    </div>
+                """, unsafe_allow_html=True)
+        
+        with col3:
+            # Diferencia: Timming - Recaudado con visual mejorado
+            if monto_recaudado_actual is not None:
+                diferencia = acumulado_hoy - monto_recaudado_actual
+                if diferencia > 0:
+                    color_emoji = "🔴"  # Rojo: te falta dinero
+                    estado = "FALTA"
+                    color_bg = "#ffebee"
+                    color_text = "#c62828"
+                elif diferencia < 0:
+                    color_emoji = "🟢"  # Verde: te sobra dinero
+                    estado = "SOBRA"
+                    color_bg = "#e8f5e9"
+                    color_text = "#2e7d32"
+                    diferencia = abs(diferencia)
+                else:
+                    color_emoji = "🟡"  # Amarillo: estás al día
+                    estado = "AL DÍA"
+                    color_bg = "#fff3e0"
+                    color_text = "#f57c00"
+                
+                # HTML personalizado para Diferencia
+                st.markdown(f"""
+                    <div style='background-color: {color_bg}; padding: 15px; border-radius: 10px; border-left: 4px solid {color_text};'>
+                        <div style='font-size: 0.85em; color: #666; margin-bottom: 5px;'>💰 Diferencia ({estado})</div>
+                        <div style='font-size: 1.8em; font-weight: bold; color: {color_text};'>S/ {diferencia:,.2f}</div>
+                        <div style='font-size: 0.75em; color: #999; margin-top: 5px;'>{color_emoji} {estado}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.metric("💰 Diferencia", "Sin datos")
+        
+        with col4:
+            if acumulado_hoy > 0 and monto_recaudado_actual is not None:
+                # % de Avance: (Dinero Recaudado / Timming Esperado) * 100
+                porcentaje_avance = (monto_recaudado_actual / acumulado_hoy) * 100
+                color_emoji = "🟢" if porcentaje_avance >= 100 else "🟡" if porcentaje_avance >= 80 else "🔴"
+                
+                # HTML personalizado para Avance
+                color_barra = "#4caf50" if porcentaje_avance >= 100 else "#ff9800" if porcentaje_avance >= 80 else "#f44336"
+                st.markdown(f"""
+                    <div style='background-color: #f5f5f5; padding: 15px; border-radius: 10px; border-left: 4px solid {color_barra};'>
+                        <div style='font-size: 0.85em; color: #666; margin-bottom: 8px;'>{color_emoji} Avance vs Timming</div>
+                        <div style='font-size: 1.8em; font-weight: bold; color: {color_barra};'>{porcentaje_avance:.1f}%</div>
+                        <div style='background-color: #e0e0e0; height: 6px; border-radius: 3px; margin-top: 8px; overflow: hidden;'>
+                            <div style='background-color: {color_barra}; height: 100%; width: {min(porcentaje_avance, 100)}%; transition: width 0.3s;'></div>
+                        </div>
+                        <div style='font-size: 0.7em; color: #999; margin-top: 5px; text-align: right;'>{min(int(porcentaje_avance), 100)}% completado</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.metric("Avance vs Timming", "Sin datos")
+        
+        # Crear tabla visual
+        st.markdown(f"### Detalle de {titulo}")
+        
+        # Preparar datos para tabla
+        tabla_visual = datos[['Día hábil', 'Fecha', 'Timing', 'Meta día', 'Acumulado']].copy()
+        tabla_visual['Día hábil'] = tabla_visual['Día hábil'].astype(int)
+        tabla_visual['Fecha'] = tabla_visual['Fecha'].dt.strftime('%d-%b-%Y')
+        tabla_visual['Timing'] = tabla_visual['Timing'].apply(lambda x: f"{x*100:.2f}%" if pd.notna(x) else "-")
+        tabla_visual['Meta día'] = tabla_visual['Meta día'].apply(lambda x: f"S/ {x:,.2f}" if pd.notna(x) else "-")
+        tabla_visual['Acumulado'] = tabla_visual['Acumulado'].apply(lambda x: f"S/ {x:,.2f}" if pd.notna(x) else "-")
+        
+        # Mostrar tabla con alternancia de colores para el día actual
+        html_tabla = "<table style='width:100%; border-collapse: collapse; font-size: 0.85em;'>"
+        html_tabla += "<tr style='background-color: #e8e8e8; font-weight: bold;'>"
+        for col in tabla_visual.columns:
+            html_tabla += f"<th style='padding: 8px; border: 1px solid #ddd; text-align: center;'>{col}</th>"
+        html_tabla += "</tr>"
+        
+        for idx, row in tabla_visual.iterrows():
+            if idx == fila_hoy:
+                bg_color = "#fffacd"
+                font_weight = "bold"
+            else:
+                bg_color = "#ffffff"
+                font_weight = "normal"
+            
+            html_tabla += f"<tr style='background-color: {bg_color}; font-weight: {font_weight};'>"
+            for col in tabla_visual.columns:
+                html_tabla += f"<td style='padding: 8px; border: 1px solid #ddd; text-align: center;'>{row[col]}</td>"
+            html_tabla += "</tr>"
+        
+        html_tabla += "</table>"
+        st.markdown(html_tabla, unsafe_allow_html=True)
+        
+    except Exception as e:
+        st.error(f"Error al mostrar tabla: {str(e)}")
+
+# Cargar y procesar datos de timming
+df_timming_raw = cargar_timming()
+
+if df_timming_raw is not None:
+    # Extraer las 4 tablas
+    tablas_timming = parsear_timming_data(df_timming_raw)
+    
+    # Crear tabs para las 4 tablas
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 Gastos General",
+        "👥 Gastos por Asesor",
+        "📋 Planillas General",
+        "👤 Planillas por Asesor"
+    ])
+    
+    # Mostrar cada tabla en su tab
+    with tab1:
+        st.markdown("#### 📊 TIMMING GENERAL GASTOS ADMINISTRATIVOS")
+        mostrar_tabla_timming(tablas_timming.get('GASTOS_GENERAL'), "Gastos General", monto_worldtel_recaudado)
+    
+    with tab2:
+        st.markdown("#### 👥 TIMMING ASESOR GASTOS")
+        
+        # Selector de asesor para esta pestaña
+        asesores_worldtel = equipo_worldtel
+        asesor_seleccionado = st.selectbox(
+            "Selecciona un Asesor",
+            options=asesores_worldtel,
+            key="asesor_gastos"
+        )
+        
+        # Obtener recaudado del asesor seleccionado
+        monto_asesor = df[df['ASESOR'] == asesor_seleccionado]['MONTO'].sum()
+        
+        mostrar_tabla_timming(
+            tablas_timming.get('GASTOS_ASESOR'), 
+            "Gastos por Asesor",
+            monto_recaudado_worldtel=monto_asesor,
+            es_asesor=True,
+            nombre_asesor=asesor_seleccionado,
+            df_cierre=df
+        )
+    
+    with tab3:
+        st.markdown("#### 📋 TIMMING GENERAL PLANILLAS")
+        mostrar_tabla_timming(tablas_timming.get('PLANILLAS_GENERAL'), "Planillas General", monto_worldtel_recaudado)
+    
+    with tab4:
+        st.markdown("#### 👤 TIMMING ASESOR PLANILLAS")
+        
+        # Selector de asesor para esta pestaña
+        asesores_worldtel = equipo_worldtel
+        asesor_seleccionado = st.selectbox(
+            "Selecciona un Asesor",
+            options=asesores_worldtel,
+            key="asesor_planillas"
+        )
+        
+        # Obtener recaudado del asesor seleccionado
+        monto_asesor = df[df['ASESOR'] == asesor_seleccionado]['MONTO'].sum()
+        
+        mostrar_tabla_timming(
+            tablas_timming.get('PLANILLAS_ASESOR'),
+            "Planillas por Asesor",
+            monto_recaudado_worldtel=monto_asesor,
+            es_asesor=True,
+            nombre_asesor=asesor_seleccionado,
+            df_cierre=df
+        )
+    
+    # Resumen final
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown("### 📈 Resumen Final de Timming")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    labels_comparativa = [
+        ("Gastos General", "GASTOS_GENERAL"),
+        ("Gastos Asesor", "GASTOS_ASESOR"),
+        ("Planillas General", "PLANILLAS_GENERAL"),
+        ("Planillas Asesor", "PLANILLAS_ASESOR")
+    ]
+    
+    for col, (label, key) in zip([col1, col2, col3, col4], labels_comparativa):
+        with col:
+            datos = tablas_timming.get(key)
+            if datos is not None and not datos.empty:
+                datos_clean = datos.copy()
+                datos_clean['Acumulado'] = pd.to_numeric(datos_clean['Acumulado'], errors='coerce')
+                ultimo_val = datos_clean['Acumulado'].iloc[-1] if pd.notna(datos_clean['Acumulado'].iloc[-1]) else 0
+                
+                st.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label">{label}</div>
+                        <div class="metric-value">S/ {ultimo_val:,.0f}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+else:
+    st.warning("⚠️ No se pudo cargar el archivo de TIMMING. Verifica que el archivo existe en la ruta correcta.")
