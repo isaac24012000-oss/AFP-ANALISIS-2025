@@ -910,8 +910,9 @@ def mostrar_tabla_timming(datos, titulo, monto_recaudado_worldtel=None, es_aseso
         # Convertir fechas
         datos['Fecha'] = pd.to_datetime(datos['Fecha'], errors='coerce')
         
-        # Obtener el día actual (21 de noviembre)
-        hoy = datetime(2025, 11, 21)
+        # Obtener el día actual (fecha del sistema)
+        from datetime import date
+        hoy = datetime.combine(date.today(), datetime.min.time())
         
         # Buscar la fila del día actual basado en la fecha
         fila_hoy = None
