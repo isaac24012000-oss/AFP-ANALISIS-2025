@@ -1007,14 +1007,15 @@ def mostrar_tabla_timming(datos, titulo, monto_recaudado_worldtel=None, es_aseso
                 
                 # HTML personalizado para Avance
                 color_barra = "#4caf50" if porcentaje_avance >= 100 else "#ff9800" if porcentaje_avance >= 80 else "#f44336"
+                ancho_barra = min(porcentaje_avance, 100) if porcentaje_avance <= 100 else 100  # Mostrar máximo 100% visual
                 st.markdown(f"""
                     <div style='background-color: #f5f5f5; padding: 15px; border-radius: 10px; border-left: 4px solid {color_barra};'>
                         <div style='font-size: 0.85em; color: #666; margin-bottom: 8px;'>{color_emoji} Avance vs Timming</div>
                         <div style='font-size: 1.8em; font-weight: bold; color: {color_barra};'>{porcentaje_avance:.1f}%</div>
                         <div style='background-color: #e0e0e0; height: 6px; border-radius: 3px; margin-top: 8px; overflow: hidden;'>
-                            <div style='background-color: {color_barra}; height: 100%; width: {min(porcentaje_avance, 100)}%; transition: width 0.3s;'></div>
+                            <div style='background-color: {color_barra}; height: 100%; width: {ancho_barra}%; transition: width 0.3s;'></div>
                         </div>
-                        <div style='font-size: 0.7em; color: #999; margin-top: 5px; text-align: right;'>{min(int(porcentaje_avance), 100)}% completado</div>
+                        <div style='font-size: 0.7em; color: #999; margin-top: 5px; text-align: right;'>{int(ancho_barra)}% completado</div>
                     </div>
                 """, unsafe_allow_html=True)
             else:
