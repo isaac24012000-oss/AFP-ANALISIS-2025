@@ -209,7 +209,8 @@ equipo_worldtel = [
     'Daniel Alejandro Barrios Pavon',
     'Juan Jose Felix Ventura',
     'Rosa Elena Villarreal Pelaez',
-    'Carla del Rosario Castillo Alvarez'
+    'Carla del Rosario Castillo Alvarez',
+    'Lesly Dayanne Zarate Roman'
 ]
 
 # Clasificar asesores
