@@ -923,10 +923,11 @@ def mostrar_tabla_timming(datos, titulo, monto_recaudado_worldtel=None, es_aseso
         for idx, row in datos.iterrows():
             fecha = row['Fecha']
             if pd.notna(fecha):
-                if fecha.date() <= hoy.date():
+                if fecha.date() == hoy.date():
                     acumulado_hoy = row['Acumulado'] if pd.notna(row['Acumulado']) else 0
                     meta_acumulada_hoy = row['Meta día'] if pd.notna(row['Meta día']) else 0
                     fila_hoy = idx
+                    break
         
         # Calcular el recaudado específico si es por asesor
         monto_recaudado_actual = monto_recaudado_worldtel
