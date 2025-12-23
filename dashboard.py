@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from datetime import datetime
 
 # Configuración de la página
 st.set_page_config(page_title="Analisis Comparativo Worldtel", page_icon="📊", layout="wide", initial_sidebar_state="expanded")
@@ -941,11 +942,12 @@ def mostrar_tabla_timming(datos, titulo, monto_recaudado_worldtel=None, es_aseso
         
         with col1:
             # Acumulado Hoy (Timming) - Visual mejorado
+            fecha_actual = datetime.now().strftime("%d/%m")
             st.markdown(f"""
                 <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);'>
                     <div style='font-size: 0.85em; color: rgba(255,255,255,0.8); margin-bottom: 5px;'>📍 Acumulado Hoy (Timming)</div>
                     <div style='font-size: 1.8em; font-weight: bold; color: #ffffff;'>S/ {acumulado_hoy:,.2f}</div>
-                    <div style='font-size: 0.75em; color: rgba(255,255,255,0.6); margin-top: 5px;'>Meta esperada al 21/11</div>
+                    <div style='font-size: 0.75em; color: rgba(255,255,255,0.6); margin-top: 5px;'>Meta esperada al {fecha_actual}</div>
                 </div>
             """, unsafe_allow_html=True)
         
