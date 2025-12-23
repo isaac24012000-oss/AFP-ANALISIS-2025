@@ -805,6 +805,288 @@ else:
     st.info("No se pueden calcular métricas sin datos de GESTIONES")
 
 # ============================================
+# SECCIÓN EVOLUCIÓN DE PAGOS Y AVANCE DÍA A DÍA
+# ============================================
+st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+st.markdown('<h2 class="section-title">📈 EVOLUCIÓN DE PAGOS Y AVANCE DÍA A DÍA</h2>', unsafe_allow_html=True)
+
+# Preparar datos de evolución de pagos
+df_fecha_equipo = df.copy()
+df_fecha_equipo = df_fecha_equipo[df_fecha_equipo['FECHA_DE_PAGO'].notna()].copy()
+
+# Agrupar por fecha y equipo
+evolucion_pagos = df_fecha_equipo.groupby([pd.Timestamp(pd.to_datetime(df_fecha_equipo['FECHA_DE_PAGO']).dt.date), 'EQUIPO']).agg({
+    'MONTO': 'sum'
+}).reset_index()
+
+# Renombrar columna de fecha
+evolucion_pagos.columns = ['FECHA', 'EQUIPO', 'MONTO_DIARIO']
+
+# Sortear por fecha
+evolucion_pagos = evolucion_pagos.sort_values('FECHA')
+
+# Calcular acumulado por equipo
+evolucion_pagos['MONTO_ACUMULADO'] = evolucion_pagos.groupby('EQUIPO')['MONTO_DIARIO'].cumsum()
+
+# Tabs para las dos vistas
+tab_evolucion, tab_avance = st.tabs([
+    "📊 Evolución de Pagos",
+    "📅 Avance Día a Día"
+])
+
+with tab_evolucion:
+    st.markdown("### Evolución Acumulada de Pagos por Equipo")
+    
+    # Crear gráfico de línea con evolución acumulada
+    fig_evolucion = px.line(
+        evolucion_pagos,
+        x='FECHA',
+        y='MONTO_ACUMULADO',
+        color='EQUIPO',
+        title='Evolución Acumulada de Pagos - WORLDTEL vs GI CORONADO',
+        markers=True,
+        color_discrete_map={'WORLDTEL': '#1f77b4', 'GI CORONADO': '#ff7f0e'},
+        labels={'FECHA': 'Fecha', 'MONTO_ACUMULADO': 'Monto Acumulado (S/)', 'EQUIPO': 'Equipo'}
+    )
+    
+    fig_evolucion.update_layout(
+        height=500,
+        hovermode='x unified',
+        plot_bgcolor='rgba(240, 240, 240, 0.5)',
+        paper_bgcolor='white'
+    )
+    
+    fig_evolucion.update_traces(
+        line=dict(width=3),
+        marker=dict(size=8)
+    )
+    
+    st.plotly_chart(fig_evolucion, use_container_width=True)
+    
+    # Gráfico de barras diarias comparativas
+    st.markdown("### Pagos Diarios Comparativos")
+    
+    fig_barras = px.bar(
+        evolucion_pagos,
+        x='FECHA',
+        y='MONTO_DIARIO',
+        color='EQUIPO',
+        title='Monto de Pagos Diarios por Equipo',
+        color_discrete_map={'WORLDTEL': '#1f77b4', 'GI CORONADO': '#ff7f0e'},
+        labels={'FECHA': 'Fecha', 'MONTO_DIARIO': 'Monto Diario (S/)', 'EQUIPO': 'Equipo'},
+        barmode='group'
+    )
+    
+    fig_barras.update_layout(
+        height=450,
+        hovermode='x unified',
+        plot_bgcolor='rgba(240, 240, 240, 0.5)'
+    )
+    
+    fig_barras.update_traces(marker_line_width=1.5, marker_line_color='white')
+    
+    st.plotly_chart(fig_barras, use_container_width=True)
+
+with tab_avance:
+    st.markdown("### Avance de Pagos Día a Día")
+    
+    # Selector de fecha
+    fechas_disponibles = sorted(evolucion_pagos['FECHA'].unique())
+    
+    col_filtro_fecha = st.columns(1)[0]
+    with col_filtro_fecha:
+        fecha_seleccionada = st.selectbox(
+            "📅 Selecciona una fecha para ver el detalle del día",
+            options=fechas_disponibles,
+            format_func=lambda x: x.strftime('%d/%m/%Y'),
+            key='selectbox_fecha_pagos'
+        )
+    
+    # Filtrar datos del día seleccionado
+    df_dia_seleccionado = df_fecha_equipo[
+        pd.to_datetime(df_fecha_equipo['FECHA_DE_PAGO']).dt.date == fecha_seleccionada.date()
+    ].copy()
+    
+    if not df_dia_seleccionado.empty:
+        # Crear tabla resumen por equipo del día
+        resumen_dia = df_dia_seleccionado.groupby('EQUIPO').agg({
+            'MONTO': ['sum', 'count'],
+            'RAZON_SOCIAL': 'nunique'
+        }).reset_index()
+        
+        resumen_dia.columns = ['EQUIPO', 'MONTO_TOTAL', 'CANTIDAD_PAGOS', 'CANTIDAD_CLIENTES']
+        resumen_dia = resumen_dia.sort_values('MONTO_TOTAL', ascending=False)
+        
+        # Mostrar métricas del día
+        st.markdown(f"#### Resumen de Pagos del {fecha_seleccionada.strftime('%d de %B de %Y')}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Worldtel
+            worldtel_data = resumen_dia[resumen_dia['EQUIPO'] == 'WORLDTEL']
+            if not worldtel_data.empty:
+                monto_wt = worldtel_data['MONTO_TOTAL'].values[0]
+                pagos_wt = int(worldtel_data['CANTIDAD_PAGOS'].values[0])
+                clientes_wt = int(worldtel_data['CANTIDAD_CLIENTES'].values[0])
+                
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #1f77b4 0%, #0d47a1 100%); padding: 20px; border-radius: 10px; color: white;'>
+                        <h3 style='margin: 0 0 15px 0;'>🟦 WORLDTEL</h3>
+                        <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 10px;'>
+                            <div>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Monto Total</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>S/ {monto_wt:,.2f}</div>
+                            </div>
+                            <div>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Pagos</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>{pagos_wt}</div>
+                            </div>
+                            <div style='grid-column: 1/-1;'>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Clientes</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>{clientes_wt}</div>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Sin pagos registrados para WORLDTEL en esta fecha")
+        
+        with col2:
+            # GI Coronado
+            gi_data = resumen_dia[resumen_dia['EQUIPO'] == 'GI CORONADO']
+            if not gi_data.empty:
+                monto_gi = gi_data['MONTO_TOTAL'].values[0]
+                pagos_gi = int(gi_data['CANTIDAD_PAGOS'].values[0])
+                clientes_gi = int(gi_data['CANTIDAD_CLIENTES'].values[0])
+                
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, #ff7f0e 0%, #e65100 100%); padding: 20px; border-radius: 10px; color: white;'>
+                        <h3 style='margin: 0 0 15px 0;'>🟧 GI CORONADO</h3>
+                        <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 10px;'>
+                            <div>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Monto Total</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>S/ {monto_gi:,.2f}</div>
+                            </div>
+                            <div>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Pagos</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>{pagos_gi}</div>
+                            </div>
+                            <div style='grid-column: 1/-1;'>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Clientes</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>{clientes_gi}</div>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.info("Sin pagos registrados para GI CORONADO en esta fecha")
+        
+        # Comparación lado a lado
+        if not worldtel_data.empty and not gi_data.empty:
+            st.markdown("#### Comparación Directa")
+            
+            col_cmp1, col_cmp2, col_cmp3 = st.columns(3)
+            
+            diferencia_monto = monto_wt - monto_gi
+            if diferencia_monto > 0:
+                color_diff = "#27ae60"
+                equipo_ganador = "WORLDTEL por S/ " + f"{diferencia_monto:,.2f}"
+            elif diferencia_monto < 0:
+                color_diff = "#e74c3c"
+                equipo_ganador = "GI CORONADO por S/ " + f"{abs(diferencia_monto):,.2f}"
+            else:
+                color_diff = "#f39c12"
+                equipo_ganador = "Empatados"
+            
+            with col_cmp1:
+                st.markdown(f"""
+                    <div style='background-color: {color_diff}20; border-left: 4px solid {color_diff}; padding: 15px; border-radius: 8px;'>
+                        <div style='font-size: 0.9em; color: #666;'>Diferencia de Monto</div>
+                        <div style='font-size: 1.6em; font-weight: bold; color: {color_diff};'>S/ {abs(diferencia_monto):,.2f}</div>
+                        <div style='font-size: 0.85em; color: #999; margin-top: 5px;'>Gana: {equipo_ganador}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            diferencia_pagos = pagos_wt - pagos_gi
+            if diferencia_pagos > 0:
+                color_pagos = "#27ae60"
+                ganador_pagos = f"WORLDTEL por {diferencia_pagos} pago(s)"
+            elif diferencia_pagos < 0:
+                color_pagos = "#e74c3c"
+                ganador_pagos = f"GI CORONADO por {abs(diferencia_pagos)} pago(s)"
+            else:
+                color_pagos = "#f39c12"
+                ganador_pagos = "Empatados"
+            
+            with col_cmp2:
+                st.markdown(f"""
+                    <div style='background-color: {color_pagos}20; border-left: 4px solid {color_pagos}; padding: 15px; border-radius: 8px;'>
+                        <div style='font-size: 0.9em; color: #666;'>Diferencia de Pagos</div>
+                        <div style='font-size: 1.6em; font-weight: bold; color: {color_pagos};'>{abs(diferencia_pagos)}</div>
+                        <div style='font-size: 0.85em; color: #999; margin-top: 5px;'>Gana: {ganador_pagos}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            diferencia_clientes = clientes_wt - clientes_gi
+            if diferencia_clientes > 0:
+                color_clientes = "#27ae60"
+                ganador_clientes = f"WORLDTEL por {diferencia_clientes} cliente(s)"
+            elif diferencia_clientes < 0:
+                color_clientes = "#e74c3c"
+                ganador_clientes = f"GI CORONADO por {abs(diferencia_clientes)} cliente(s)"
+            else:
+                color_clientes = "#f39c12"
+                ganador_clientes = "Empatados"
+            
+            with col_cmp3:
+                st.markdown(f"""
+                    <div style='background-color: {color_clientes}20; border-left: 4px solid {color_clientes}; padding: 15px; border-radius: 8px;'>
+                        <div style='font-size: 0.9em; color: #666;'>Diferencia de Clientes</div>
+                        <div style='font-size: 1.6em; font-weight: bold; color: {color_clientes};'>{abs(diferencia_clientes)}</div>
+                        <div style='font-size: 0.85em; color: #999; margin-top: 5px;'>Gana: {ganador_clientes}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+        
+        # Tabla detallada de pagos del día
+        st.markdown("#### Detalle de Pagos del Día")
+        
+        # Preparar tabla detallada
+        df_detalle_dia = df_dia_seleccionado[[
+            'ASESOR', 'EQUIPO', 'RAZON_SOCIAL', 'CARTERA', 'MONTO', 'NUMERO_FACTURA'
+        ]].sort_values(['EQUIPO', 'MONTO'], ascending=[True, False]).copy()
+        
+        df_detalle_dia['MONTO'] = df_detalle_dia['MONTO'].apply(lambda x: f"S/ {x:,.2f}")
+        
+        # Crear tabla HTML personalizada
+        html_tabla_detalle_dia = "<table style='width:100%; border-collapse: collapse; font-size: 0.85em;'>"
+        html_tabla_detalle_dia += "<tr style='background-color: #e8e8e8; font-weight: bold;'>"
+        html_tabla_detalle_dia += "<th style='padding: 8px; border: 1px solid #ddd; text-align: left;'>Asesor</th>"
+        html_tabla_detalle_dia += "<th style='padding: 8px; border: 1px solid #ddd; text-align: center;'>Equipo</th>"
+        html_tabla_detalle_dia += "<th style='padding: 8px; border: 1px solid #ddd; text-align: left;'>Razón Social</th>"
+        html_tabla_detalle_dia += "<th style='padding: 8px; border: 1px solid #ddd; text-align: left;'>Cartera</th>"
+        html_tabla_detalle_dia += "<th style='padding: 8px; border: 1px solid #ddd; text-align: right;'>Monto</th>"
+        html_tabla_detalle_dia += "<th style='padding: 8px; border: 1px solid #ddd; text-align: center;'>Factura</th>"
+        html_tabla_detalle_dia += "</tr>"
+        
+        for idx, row in df_detalle_dia.iterrows():
+            color_equipo = "#e3f2fd" if row['EQUIPO'] == 'WORLDTEL' else "#fff3e0"
+            html_tabla_detalle_dia += f"<tr style='background-color: {color_equipo};'>"
+            html_tabla_detalle_dia += f"<td style='padding: 8px; border: 1px solid #ddd;'>{row['ASESOR']}</td>"
+            html_tabla_detalle_dia += f"<td style='padding: 8px; border: 1px solid #ddd; text-align: center;'><strong>{row['EQUIPO']}</strong></td>"
+            html_tabla_detalle_dia += f"<td style='padding: 8px; border: 1px solid #ddd;'>{row['RAZON_SOCIAL']}</td>"
+            html_tabla_detalle_dia += f"<td style='padding: 8px; border: 1px solid #ddd;'>{row['CARTERA']}</td>"
+            html_tabla_detalle_dia += f"<td style='padding: 8px; border: 1px solid #ddd; text-align: right;'><strong>{row['MONTO']}</strong></td>"
+            html_tabla_detalle_dia += f"<td style='padding: 8px; border: 1px solid #ddd; text-align: center;'>{row['NUMERO_FACTURA']}</td>"
+            html_tabla_detalle_dia += "</tr>"
+        
+        html_tabla_detalle_dia += "</table>"
+        st.markdown(html_tabla_detalle_dia, unsafe_allow_html=True)
+    
+    else:
+        st.warning(f"No hay pagos registrados para la fecha {fecha_seleccionada.strftime('%d/%m/%Y')}")
+
+# ============================================
 # SECCIÓN TIMMING - GASTOS
 # ============================================
 st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
