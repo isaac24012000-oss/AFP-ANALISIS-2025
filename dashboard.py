@@ -814,12 +814,15 @@ st.markdown('<h2 class="section-title">📈 EVOLUCIÓN DE PAGOS Y AVANCE DÍA A 
 df_fecha_equipo = df.copy()
 df_fecha_equipo = df_fecha_equipo[df_fecha_equipo['FECHA_DE_PAGO'].notna()].copy()
 
+# Convertir fechas y crear columna de fecha sin hora
+df_fecha_equipo['FECHA'] = pd.to_datetime(df_fecha_equipo['FECHA_DE_PAGO']).dt.normalize()
+
 # Agrupar por fecha y equipo
-evolucion_pagos = df_fecha_equipo.groupby([pd.Timestamp(pd.to_datetime(df_fecha_equipo['FECHA_DE_PAGO']).dt.date), 'EQUIPO']).agg({
+evolucion_pagos = df_fecha_equipo.groupby(['FECHA', 'EQUIPO']).agg({
     'MONTO': 'sum'
 }).reset_index()
 
-# Renombrar columna de fecha
+# Renombrar columna de monto
 evolucion_pagos.columns = ['FECHA', 'EQUIPO', 'MONTO_DIARIO']
 
 # Sortear por fecha
