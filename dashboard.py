@@ -902,6 +902,7 @@ with tab_avance:
             "📅 Selecciona una fecha para ver el detalle del día",
             options=fechas_disponibles,
             format_func=lambda x: x.strftime('%d/%m/%Y'),
+            index=len(fechas_disponibles) - 1,
             key='selectbox_fecha_pagos'
         )
     
@@ -909,6 +910,21 @@ with tab_avance:
     df_dia_seleccionado = df_fecha_equipo[
         pd.to_datetime(df_fecha_equipo['FECHA_DE_PAGO']).dt.date == fecha_seleccionada.date()
     ].copy()
+    
+    # Filtrar gestiones del día seleccionado
+    df_gestiones_dia = None
+    gestiones_worldtel = 0
+    gestiones_gi = 0
+    
+    if df_gestiones is not None and not df_gestiones.empty:
+        df_gestiones['EQUIPO'] = df_gestiones['GESTOR'].apply(lambda x: 'WORLDTEL' if x in equipo_worldtel else 'GI CORONADO')
+        df_gestiones_dia = df_gestiones[
+            (df_gestiones['FECHA_GESTION'].notna()) &
+            (pd.to_datetime(df_gestiones['FECHA_GESTION']).dt.date == fecha_seleccionada.date())
+        ].copy()
+        
+        gestiones_worldtel = len(df_gestiones_dia[df_gestiones_dia['EQUIPO'] == 'WORLDTEL'])
+        gestiones_gi = len(df_gestiones_dia[df_gestiones_dia['EQUIPO'] == 'GI CORONADO'])
     
     if not df_dia_seleccionado.empty:
         # Crear tabla resumen por equipo del día
@@ -945,9 +961,13 @@ with tab_avance:
                                 <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Pagos</div>
                                 <div style='font-size: 1.6em; font-weight: bold;'>{pagos_wt}</div>
                             </div>
-                            <div style='grid-column: 1/-1;'>
+                            <div>
                                 <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Clientes</div>
                                 <div style='font-size: 1.6em; font-weight: bold;'>{clientes_wt}</div>
+                            </div>
+                            <div>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Gestiones Realizadas</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>{gestiones_worldtel}</div>
                             </div>
                         </div>
                     </div>
@@ -975,9 +995,13 @@ with tab_avance:
                                 <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Pagos</div>
                                 <div style='font-size: 1.6em; font-weight: bold;'>{pagos_gi}</div>
                             </div>
-                            <div style='grid-column: 1/-1;'>
+                            <div>
                                 <div style='font-size: 0.9em; opacity: 0.9;'>Cantidad Clientes</div>
                                 <div style='font-size: 1.6em; font-weight: bold;'>{clientes_gi}</div>
+                            </div>
+                            <div>
+                                <div style='font-size: 0.9em; opacity: 0.9;'>Gestiones Realizadas</div>
+                                <div style='font-size: 1.6em; font-weight: bold;'>{gestiones_gi}</div>
                             </div>
                         </div>
                     </div>
@@ -989,7 +1013,7 @@ with tab_avance:
         if not worldtel_data.empty and not gi_data.empty:
             st.markdown("#### Comparación Directa")
             
-            col_cmp1, col_cmp2, col_cmp3 = st.columns(3)
+            col_cmp1, col_cmp2, col_cmp3, col_cmp4 = st.columns(4)
             
             diferencia_monto = monto_wt - monto_gi
             if diferencia_monto > 0:
@@ -1048,6 +1072,26 @@ with tab_avance:
                         <div style='font-size: 0.9em; color: #666;'>Diferencia de Clientes</div>
                         <div style='font-size: 1.6em; font-weight: bold; color: {color_clientes};'>{abs(diferencia_clientes)}</div>
                         <div style='font-size: 0.85em; color: #999; margin-top: 5px;'>Gana: {ganador_clientes}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            diferencia_gestiones = gestiones_worldtel - gestiones_gi
+            if diferencia_gestiones > 0:
+                color_gestiones = "#27ae60"
+                ganador_gestiones = f"WORLDTEL por {diferencia_gestiones} gestión(es)"
+            elif diferencia_gestiones < 0:
+                color_gestiones = "#e74c3c"
+                ganador_gestiones = f"GI CORONADO por {abs(diferencia_gestiones)} gestión(es)"
+            else:
+                color_gestiones = "#f39c12"
+                ganador_gestiones = "Empatados"
+            
+            with col_cmp4:
+                st.markdown(f"""
+                    <div style='background-color: {color_gestiones}20; border-left: 4px solid {color_gestiones}; padding: 15px; border-radius: 8px;'>
+                        <div style='font-size: 0.9em; color: #666;'>Diferencia de Gestiones</div>
+                        <div style='font-size: 1.6em; font-weight: bold; color: {color_gestiones};'>{abs(diferencia_gestiones)}</div>
+                        <div style='font-size: 0.85em; color: #999; margin-top: 5px;'>Gana: {ganador_gestiones}</div>
                     </div>
                 """, unsafe_allow_html=True)
         
